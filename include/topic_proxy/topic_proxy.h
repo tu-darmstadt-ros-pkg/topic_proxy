@@ -59,7 +59,7 @@ public:
 
 public:
   TopicProxy();
-  TopicProxy(const std::string& host, uint32_t port);
+  TopicProxy(const std::string& host, uint32_t port = 0);
   virtual ~TopicProxy();
 
   bool isValid() const;

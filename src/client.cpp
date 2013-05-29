@@ -149,7 +149,7 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "topic_proxy_client");
 
   std::string host;
-  int port = topic_proxy::TopicProxy::s_default_port;
+  int port = 0;
 
   // get host/port from parameter server
   ros::param::get("~host", host);

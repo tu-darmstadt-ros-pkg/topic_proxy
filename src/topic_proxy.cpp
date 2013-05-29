@@ -26,6 +26,7 @@ namespace topic_proxy
     : host_(host)
     , port_(port)
   {
+    if (port_ == 0) port_ = s_default_port;
     init();
     compression_.reset(new Compression());
   }
