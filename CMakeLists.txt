@@ -9,7 +9,13 @@ find_package(catkin REQUIRED COMPONENTS roscpp message_generation topic_tools)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-
+include($ENV{ROS_ROOT}/core/rosbuild/FindPkgConfig.cmake)
+pkg_check_modules(zlib zlib)
+if(zlib_FOUND)
+  add_definitions(-DHAVE_ZLIB)
+  include_directories({$zlib_INCLUDE_DIRS})
+  link_directories(${zlib_LIBRARY_DIRS})
+endif()
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -66,7 +72,7 @@ include_directories(include
 
 ## Declare a cpp library
 add_library(topic_proxy
-  src/topic_proxy.cpp
+  src/topic_proxy.cpp src/compression.cpp
 )
 
 ## Declare a cpp executable
@@ -78,7 +84,7 @@ add_executable(client src/client.cpp)
 add_dependencies(topic_proxy topic_proxy_gencpp)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(topic_proxy ${catkin_LIBRARIES})
+target_link_libraries(topic_proxy ${catkin_LIBRARIES} ${zlib_LIBRARIES})
 target_link_libraries(server topic_proxy)
 target_link_libraries(client topic_proxy)
 

@@ -26,69 +26,22 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#ifndef TOPIC_PROXY_H
-#define TOPIC_PROXY_H
+#ifndef TOPIC_PROXY_COMPRESSION_H
+#define TOPIC_PROXY_COMPRESSION_H
 
-#include <ros/forwards.h>
-#include <topic_proxy/TopicRequest.h>
-#include <topic_tools/shape_shifter.h>
+#include <stdint.h>
+#include <vector>
+#include <string>
 
-namespace topic_tools
-{
-  class ShapeShifter;
-}
+namespace topic_proxy {
 
-namespace topic_proxy
-{
-
-class Compression;
-using topic_tools::ShapeShifter;
-
-class TopicProxy
-{
-private:
-  ros::ServiceServerLinkPtr link_;
-  std::string host_;
-  uint16_t port_;
-
-  boost::shared_ptr<Compression> compression_;
-
+class Compression {
 public:
-  static const std::string s_service_name;
-  static const uint32_t s_default_port;
-
-public:
-  TopicProxy();
-  TopicProxy(const std::string& host, uint32_t port);
-  virtual ~TopicProxy();
-
-  bool isValid() const;
-
-  const std::string& getHost() const { return host_; }
-  uint16_t getTCPPort() const { return port_; }
-  std::string getServiceName();
-
-  template <class M>
-  boost::shared_ptr<M> requestTopic(const std::string& topic, ros::Duration timeout = ros::Duration(), bool compressed = false);
-
-protected:
-  bool init();
-  boost::shared_ptr<ShapeShifter> sendRequest(TopicRequest::Request& request);
+  virtual std::string getType() const;
+  virtual bool compress(const std::vector<uint8_t>& in, std::vector<uint8_t> &out);
+  virtual bool decompress(const std::vector<uint8_t>& in, std::vector<uint8_t> &out);
 };
-
-template <class M>
-boost::shared_ptr<M> TopicProxy::requestTopic(const std::string& topic, ros::Duration timeout, bool compressed)
-{
-  TopicRequest::Request request;
-  request.topic = topic;
-  request.timeout = timeout;
-  request.compressed = compressed;
-
-  boost::shared_ptr<ShapeShifter> result = sendRequest(request);
-  if (!result) return boost::shared_ptr<M>();
-  return result ? result->instantiate<M>() : boost::shared_ptr<M>();
-}
 
 } // namespace topic_proxy
 
-#endif // TOPIC_PROXY_H
+#endif // TOPIC_PROXY_COMPRESSION_H

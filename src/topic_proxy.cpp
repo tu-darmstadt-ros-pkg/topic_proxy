@@ -1,4 +1,5 @@
 #include <topic_proxy/topic_proxy.h>
+#include <topic_proxy/compression.h>
 #include <topic_tools/shape_shifter.h>
 
 #include <ros/serialization.h>
@@ -18,6 +19,7 @@ namespace topic_proxy
   TopicProxy::TopicProxy()
   {
     init();
+    compression_.reset(new Compression());
   }
 
   TopicProxy::TopicProxy(const std::string& host, uint32_t port)
@@ -25,6 +27,7 @@ namespace topic_proxy
     , port_(port)
   {
     init();
+    compression_.reset(new Compression());
   }
 
   bool TopicProxy::init()
@@ -104,6 +107,17 @@ namespace topic_proxy
 
     ShapeShifter::Ptr instance(new ShapeShifter());
     instance->morph(response.md5sum, response.type, response.message_definition, response.latching);
+
+    if (response.is_compressed && compression_) {
+      TopicRequest::Response::_data_type uncompressed;
+      if (compression_->decompress(response.data, uncompressed)) {
+        response.data.swap(uncompressed);
+
+      } else {
+        ROS_ERROR("%s decompression of a message of topic %s failed", compression_->getType().c_str(), request.topic.c_str());
+        return ShapeShifter::Ptr();
+      }
+    }
 
     try {
       serialization::IStream stream(response.data.data(), response.data.size());

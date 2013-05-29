@@ -1,4 +1,5 @@
 #include <topic_proxy/topic_proxy.h>
+#include <topic_proxy/compression.h>
 
 #include <ros/ros.h>
 #include <ros/callback_queue.h>
@@ -34,10 +35,13 @@ private:
   typedef boost::shared_ptr<SubscriptionInfo> SubscriptionInfoPtr;
   std::map<std::string, SubscriptionInfoPtr> subscriptions_;
 
+  boost::shared_ptr<Compression> compression_;
+
 public:
   Server()
   {
     server_ = nh_.advertiseService(TopicProxy::s_service_name, &Server::handleRequest, this);
+    compression_.reset(new Compression());
   }
 
   ~Server()
@@ -97,6 +101,21 @@ protected:
     } catch(ros::Exception& e) {
       ROS_ERROR("Catched exception while handling a request for topic %s: %s", request.topic.c_str(), e.what());
       return false;
+    }
+
+    if (request.compressed && compression_) {
+      TopicRequest::Response::_data_type compressed;
+      if (compression_->compress(response.data, compressed)) {
+        if (compressed.size() < response.data.size()) {
+          response.is_compressed = true;
+          response.data.swap(compressed);
+        } else {
+          ROS_DEBUG("Omitted %s compression of a message on topic as the compressed message size is bigger than the original data", compression_->getType().c_str(), request.topic.c_str());
+        }
+
+      } else {
+        ROS_ERROR("%s compression of a message on topic %s failed", compression_->getType().c_str(), request.topic.c_str());
+      }
     }
 
     return true;

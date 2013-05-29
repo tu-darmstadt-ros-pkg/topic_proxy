@@ -1,7 +1,7 @@
 <launch>
   <node name="topic_proxy_client" pkg="topic_proxy" type="client" output="screen" ns="client">
     <rosparam param="publications">[
-      { topic: chatter, interval: 1.0 }
+      { topic: chatter, interval: 1.0, compressed: true }
     ]</rosparam>
   </node>
 </launch>
