@@ -2,7 +2,7 @@
 <package>
   <name>topic_proxy</name>
   <version>0.0.0</version>
-  <description>The topic_proxy package</description>
+  <description>topic_proxy implements a ROS service server and client to pull single messages from one master and optionally republish them locally.</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
   <!-- Example:  -->
@@ -25,7 +25,7 @@
   <!-- Authors do not have to be maintianers, but could be -->
   <!-- Example: -->
   <!-- <author email="jane.doe@example.com">Jane Doe</author> -->
-  <author email="meyer@fsr.tu-darmstadt.de">Johannes Meyer</maintainer>
+  <author email="meyer@fsr.tu-darmstadt.de">Johannes Meyer</author>
 
   <!-- The *_depend tags are used to specify dependencies -->
   <!-- Dependencies can be catkin packages or system dependencies -->
@@ -44,7 +44,6 @@
   <build_depend>topic_tools</build_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>message_runtime</run_depend>
-  <run_depend>topic_tools</run_depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

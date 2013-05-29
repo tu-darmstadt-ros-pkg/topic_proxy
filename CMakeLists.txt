@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(topic_proxy)
-set(CMAKE_BUILD_TYPE Debug)
+#set(CMAKE_BUILD_TYPE Debug)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -49,8 +49,8 @@ generate_messages(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-#  LIBRARIES topic_proxy
-  CATKIN_DEPENDS roscpp message_runtime topic_tools
+  LIBRARIES topic_proxy
+  CATKIN_DEPENDS message_runtime
 #  DEPENDS system_lib
 )
 
@@ -65,9 +65,9 @@ include_directories(include
 )
 
 ## Declare a cpp library
-# add_library(topic_proxy
-#   src/${PROJECT_NAME}/topic_proxy.cpp
-# )
+add_library(topic_proxy
+  src/topic_proxy.cpp
+)
 
 ## Declare a cpp executable
 add_executable(server src/server.cpp)
@@ -75,17 +75,12 @@ add_executable(client src/client.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-add_dependencies(server topic_proxy_gencpp)
-add_dependencies(client topic_proxy_gencpp)
+add_dependencies(topic_proxy topic_proxy_gencpp)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(server
-  ${catkin_LIBRARIES}
-)
-
-target_link_libraries(client
-  ${catkin_LIBRARIES}
-)
+target_link_libraries(topic_proxy ${catkin_LIBRARIES})
+target_link_libraries(server topic_proxy)
+target_link_libraries(client topic_proxy)
 
 #############
 ## Install ##

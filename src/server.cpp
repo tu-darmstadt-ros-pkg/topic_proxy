@@ -1,12 +1,14 @@
+#include <topic_proxy/topic_proxy.h>
+
 #include <ros/ros.h>
 #include <ros/callback_queue.h>
 #include <ros/serialization.h>
 
 #include <ros/network.h>
 #include <ros/connection_manager.h>
+#include <ros/transport/transport_tcp.h>
 
 #include <topic_tools/shape_shifter.h>
-#include <topic_proxy/TopicRequest.h>
 
 namespace topic_proxy
 {
@@ -33,10 +35,9 @@ private:
   std::map<std::string, SubscriptionInfoPtr> subscriptions_;
 
 public:
-  Server(const std::string& peer = std::string())
-    : peer_(peer)
+  Server()
   {
-    server_ = nh_.advertiseService("/" + peer_ + "/topic_request", &Server::handleRequest, this);
+    server_ = nh_.advertiseService(TopicProxy::s_service_name, &Server::handleRequest, this);
   }
 
   ~Server()
@@ -49,7 +50,7 @@ public:
     return ros::network::getHost();
   }
 
-  uint32_t getTCPPort() const
+  uint16_t getTCPPort() const
   {
     return ros::ConnectionManager::instance()->getTCPPort();
   }
@@ -119,18 +120,18 @@ protected:
 
 int main(int argc, char **argv)
 {
+  // add __tcpros_server_port to remappings
+  std::string tcpros_server_port_argv = "__tcpros_server_port:=" + boost::lexical_cast<std::string>(topic_proxy::TopicProxy::s_default_port);
+  std::vector<char *> new_argv;
+  new_argv.reserve(argc + 1);
+  new_argv.assign(&argv[0], &argv[argc]);
+  new_argv.push_back(const_cast<char *>(tcpros_server_port_argv.c_str()));
+  argc = new_argv.size();
+  argv = new_argv.data();
+
   ros::init(argc, argv, "topic_proxy_server");
-
-  std::string peer;
-  if (argc < 2) {
-    ROS_ERROR_STREAM("Syntax: rosrun " ROS_PACKAGE_NAME " server <peer>");
-    return 1;
-  }
-
-  peer = std::string(argv[1]);
-  topic_proxy::Server server(peer);
-
-  ROS_INFO("Created topic_proxy server for %s on %s:%u", peer.c_str(), server.getHost().c_str(), server.getTCPPort());
+  topic_proxy::Server server;
+  ROS_INFO("Created topic_proxy server listening on %s:%u", server.getHost().c_str(), server.getTCPPort());
   ros::spin();
   return 0;
 }

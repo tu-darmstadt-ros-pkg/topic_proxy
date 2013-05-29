@@ -1,26 +1,14 @@
 #include <ros/ros.h>
-#include <ros/xmlrpc_manager.h>
-#include <ros/serialization.h>
-#include <ros/network.h>
-
+#include <topic_proxy/topic_proxy.h>
 #include <topic_tools/shape_shifter.h>
-#include <topic_proxy/TopicRequest.h>
 
 namespace topic_proxy
 {
 
-using topic_tools::ShapeShifter;
-
-class Client
+class Client : public TopicProxy
 {
 private:
   ros::NodeHandle nh_;
-  ros::ServiceClient client_;
-  ros::Subscriber request_subscriber_;
-
-  std::string peer_;
-  std::string host_;
-  uint32_t port_;
 
   struct PublicationInfo
   {
@@ -38,15 +26,34 @@ private:
   std::map<std::string, PublicationInfoPtr> publications_;
 
 public:
-  Client(const std::string& peer, const std::string& host, uint32_t port, const std::string& ns = std::string())
-    : nh_(ns)
-    , peer_(peer)
-    , host_(host)
-    , port_(port)
+  Client(const std::string& ns)
+    : TopicProxy()
+    , nh_(ns)
   {
-    advertiseService();
-    client_ = nh_.serviceClient<TopicRequest>("/" + peer_ + "/topic_request");
-    request_subscriber_ = nh_.subscribe<TopicRequest::Request>("request", 10, boost::bind(&Client::requestCallback, this, _1));
+    init();
+  }
+
+  Client(const std::string& host, uint32_t port, const std::string& ns = std::string())
+    : TopicProxy(host, port)
+    , nh_(ns)
+  {
+    init();
+  }
+
+  bool init() {
+    if (isValid()) {
+      if (!getHost().empty()) {
+        ROS_INFO("Connected to topic_proxy server at %s:%u", getHost().c_str(), getTCPPort());
+      } else {
+        ROS_INFO("Connected to topic_proxy server at local master %s", ros::master::getURI().c_str());
+      }
+    } else {
+      if (!getHost().empty()) {
+        ROS_WARN("Could not connect to topic_proxy server at %s:%u", getHost().c_str(), getTCPPort());
+      } else {
+        ROS_WARN("Could not connect to topic_proxy server at local master %s", ros::master::getURI().c_str());
+      }
+    }
 
     XmlRpc::XmlRpcValue publications;
     ros::param::get("~publications", publications);
@@ -62,7 +69,7 @@ public:
           if (p.hasMember("timeout"))    publication->request.timeout = ros::Duration(static_cast<double>(p["timeout"]));
           if (p.hasMember("compressed")) publication->request.compressed = static_cast<bool>(p["compressed"]);
           if (p.hasMember("interval"))   interval = ros::Duration(static_cast<double>(p["interval"]));
-          if (p.hasMember("interval"))   publication->latch = static_cast<bool>(p["latch"]);
+          if (p.hasMember("latch"))      publication->latch = static_cast<bool>(p["latch"]);
         }
 
         if (!publication->request.topic.empty() && !interval.isZero()) {
@@ -76,61 +83,21 @@ public:
   ~Client()
   {
     clearPublications();
-    unadvertiseService();
-  }
-
-  const std::string& getHost() const
-  {
-    return host_;
-  }
-
-  uint32_t getTCPPort() const
-  {
-    return port_;
-  }
-
-  std::string getService()
-  {
-    return client_.getService();
-  }
-
-  ShapeShifter::Ptr requestTopic(const std::string& topic, ros::Duration timeout = ros::Duration(), bool compressed = false)
-  {
-    TopicRequest::Request request;
-    request.topic = topic;
-    request.timeout = timeout;
-    request.compressed = compressed;
-    return requestTopic(request);
-  }
-
-  ShapeShifter::Ptr requestTopic(TopicRequest::Request& request)
-  {
-    TopicRequest::Response response;
-    if (!client_.waitForExistence()) return ShapeShifter::Ptr();
-    if (!client_.call(request, response)) return ShapeShifter::Ptr();
-
-    ShapeShifter::Ptr instance(new ShapeShifter());
-    instance->morph(response.md5sum, response.type, response.message_definition, response.latching);
-
-    try {
-      ros::serialization::IStream stream(response.data.data(), response.data.size());
-      instance->read(stream);
-    } catch(ros::Exception& e) {
-      ROS_ERROR("Catched exception while handling a request for topic %s: %s", request.topic.c_str(), e.what());
-      return ShapeShifter::Ptr();
-    }
-
-    return instance;
   }
 
   bool publish(TopicRequest::Request& request, bool latch = false)
   {
-    ShapeShifter::Ptr instance = requestTopic(request);
+    ShapeShifter::Ptr instance = sendRequest(request);
     if (!instance) return false;
 
     PublicationInfoPtr publication = addPublication(request.topic);
     if (!publications_[request.topic]->publisher) {
-      ROS_INFO("Advertising topic %s from host %s as %s", request.topic.c_str(), host_.c_str(), nh_.resolveName(request.topic).c_str());
+      if (!getHost().empty()) {
+        ROS_INFO("Advertising topic %s from host %s as %s", request.topic.c_str(), getHost().c_str(), nh_.resolveName(request.topic).c_str());
+      } else {
+        ROS_INFO("Advertising topic %s as %s", request.topic.c_str(), nh_.resolveName(request.topic).c_str());
+      }
+
       ros::AdvertiseOptions ops = ros::AdvertiseOptions(request.topic, 10, instance->getMD5Sum(), instance->getDataType(), instance->getMessageDefinition(), boost::bind(&Client::connectCallback, this, publication), boost::bind(&Client::disconnectCallback, this, publication));
       ops.latch = latch;
       publication->publisher = nh_.advertise(ops);
@@ -150,14 +117,6 @@ public:
     return publications_.insert(std::pair<std::string, PublicationInfoPtr>(topic, publication)).first->second;
   }
 
-  void requestCallback(const TopicRequest::Request::ConstPtr& request)
-  {
-    TopicRequest::Request copy(*request);
-    if (!publish(copy)) {
-      ROS_ERROR("Error while handling a request for topic %s", request->topic.c_str());
-    }
-  }
-
   void timerCallback(const PublicationInfoPtr& publication, const ros::TimerEvent& event)
   {
     publish(publication->request, publication->latch);
@@ -172,35 +131,6 @@ public:
   }
 
 protected:
-  bool advertiseService()
-  {
-    // do not readvertise if this client runs on the same host as the server
-    if (host_ == ros::network::getHost() || host_ == "localhost") return true;
-
-    XmlRpc::XmlRpcValue args, result, payload;
-    args[0] = ros::this_node::getName();
-    args[1] = "/" + peer_ + "/" + "topic_request";
-    char uri_buf[1024];
-    snprintf(uri_buf, sizeof(uri_buf), "rosrpc://%s:%d", host_.c_str(), port_);
-    args[2] = std::string(uri_buf);
-    args[3] = ros::XMLRPCManager::instance()->getServerURI();
-    return ros::master::execute("registerService", args, result, payload, true);
-  }
-
-  bool unadvertiseService()
-  {
-    // do not readvertise if this client runs on the same host as the server
-    if (host_ == ros::network::getHost() || host_ == "localhost") return true;
-
-    XmlRpc::XmlRpcValue args, result, payload;
-    args[0] = ros::this_node::getName();
-    args[1] = "/" + peer_ + "/" + "topic_request";
-    char uri_buf[1024];
-    snprintf(uri_buf, sizeof(uri_buf), "rosrpc://%s:%d", host_.c_str(), port_);
-    args[2] = std::string(uri_buf);
-    return ros::master::execute("unregisterService", args, result, payload, false);
-  }
-
   void connectCallback(const PublicationInfoPtr& publication)
   {
 
@@ -210,7 +140,6 @@ protected:
   {
 
   }
-
 };
 
 }
@@ -219,23 +148,18 @@ int main(int argc, char **argv)
 {
   ros::init(argc, argv, "topic_proxy_client");
 
-  std::string peer;
   std::string host;
-  int port = 0;
+  int port = topic_proxy::TopicProxy::s_default_port;
 
+  // get host/port from parameter server
   ros::param::get("~host", host);
   ros::param::get("~port", port);
 
-  if (argc < 2 || host.empty() || port == 0) {
-    ROS_ERROR_STREAM("Missing host or port parameter." << std::endl
-                  << "Syntax: rosrun " ROS_PACKAGE_NAME " client <peer> _host:=<host> _port:=<port>");
-    return 1;
-  }
+  // get host/port from command line
+  if (argc > 1) host = argv[1];
+  if (argc > 2) port = boost::lexical_cast<uint32_t>(std::string(argv[2]));
 
-  peer = std::string(argv[1]);
-
-  ROS_INFO("Contacting peer %s via %s:%u", peer.c_str(), host.c_str(), port);
-  topic_proxy::Client client(peer, host, port);
+  topic_proxy::Client client(host, port);
   ros::spin();
   return 0;
 }
