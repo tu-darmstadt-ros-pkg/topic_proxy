@@ -88,7 +88,10 @@ public:
   bool publish(TopicRequest::Request& request, bool latch = false)
   {
     ShapeShifter::Ptr instance = sendRequest(request);
-    if (!instance) return false;
+    if (!instance) {
+      ROS_ERROR("Request for topic %s failed", request.topic.c_str());
+      return false;
+    }
 
     PublicationInfoPtr publication = addPublication(request.topic);
     if (!publications_[request.topic]->publisher) {

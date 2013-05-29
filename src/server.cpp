@@ -107,8 +107,11 @@ protected:
       TopicRequest::Response::_data_type compressed;
       if (compression_->compress(response.data, compressed)) {
         if (compressed.size() < response.data.size()) {
+          ROS_DEBUG("Compressed message of topic %s: uncompressed %lu bytes, compressed %lu bytes => %.1f %%", request.topic.c_str(), response.data.size(), compressed.size(), 100.0 - 100.0 * compressed.size() / response.data.size());
+
           response.is_compressed = true;
           response.data.swap(compressed);
+
         } else {
           ROS_DEBUG("Omitted %s compression of a message on topic as the compressed message size is bigger than the original data", compression_->getType().c_str(), request.topic.c_str());
         }
