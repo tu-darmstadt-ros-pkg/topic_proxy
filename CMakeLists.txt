@@ -56,7 +56,7 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES topic_proxy
-  CATKIN_DEPENDS message_runtime
+  CATKIN_DEPENDS roscpp message_runtime topic_tools
 #  DEPENDS system_lib
 )
 
