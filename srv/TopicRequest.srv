@@ -1,0 +1,11 @@
+string topic
+duration timeout
+bool compressed
+---
+string topic
+string md5sum
+string type
+string message_definition
+string latching
+bool is_compressed
+uint8[] data
