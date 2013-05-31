@@ -2,7 +2,7 @@
 <package>
   <name>blob</name>
   <version>0.0.0</version>
-  <description>The blob package</description>
+  <description>blob provides a new message type blob/Blob for binary data.</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
   <!-- Example:  -->
@@ -26,7 +26,7 @@
   <!-- Authors do not have to be maintianers, but could be -->
   <!-- Example: -->
   <!-- <author email="jane.doe@example.com">Jane Doe</author> -->
-
+  <author email="meyer@fsr.tu-darmstadt.de">Johannes Meyer</author>
 
   <!-- The *_depend tags are used to specify dependencies -->
   <!-- Dependencies can be catkin packages or system dependencies -->
