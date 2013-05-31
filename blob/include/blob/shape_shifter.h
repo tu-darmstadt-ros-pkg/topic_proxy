@@ -50,7 +50,7 @@ struct ShapeShifter
   std::string const& getMD5Sum()            const;
   std::string const& getMessageDefinition() const;
 
-  void morph(const std::string& md5sum, const std::string& datatype,
+  ShapeShifter& morph(const std::string& md5sum, const std::string& datatype,
              const std::string& msg_def = std::string(), const std::string& latching = std::string());
 
   // Helper for advertising

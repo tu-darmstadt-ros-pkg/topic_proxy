@@ -48,13 +48,14 @@ namespace blob {
   std::string const& ShapeShifter::getMD5Sum()            const { return md5; }
   std::string const& ShapeShifter::getMessageDefinition() const { return msg_def; }
 
-  void ShapeShifter::morph(const std::string& _md5sum, const std::string& _datatype, const std::string& _msg_def,
+  ShapeShifter& ShapeShifter::morph(const std::string& _md5sum, const std::string& _datatype, const std::string& _msg_def,
              const std::string& _latching)
   {
     md5 = _md5sum;
     datatype = _datatype;
     msg_def = _msg_def;
     latching = _latching;
+    return *this;
   }
 
   // Helper for advertising
