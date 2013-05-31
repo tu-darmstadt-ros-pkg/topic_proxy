@@ -5,17 +5,11 @@ project(topic_proxy)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS roscpp message_generation topic_tools)
+find_package(catkin REQUIRED COMPONENTS roscpp message_generation blob)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-include($ENV{ROS_ROOT}/core/rosbuild/FindPkgConfig.cmake)
-pkg_check_modules(zlib zlib)
-if(zlib_FOUND)
-  add_definitions(-DHAVE_ZLIB)
-  include_directories({$zlib_INCLUDE_DIRS})
-  link_directories(${zlib_LIBRARY_DIRS})
-endif()
+
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -27,22 +21,23 @@ endif()
 #######################################
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+  FILES
+  MessageInstance.msg
+)
 
 ## Generate services in the 'srv' folder
 add_service_files(
   FILES
-  TopicRequest.srv
+  GetMessage.srv
+  PublishMessage.srv
+  RequestMessage.srv
 )
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
-#   DEPENDENCIES
-#   std_msgs  # Or other packages containing msgs
+  DEPENDENCIES
+  blob
 )
 
 ###################################
@@ -56,7 +51,7 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES topic_proxy
-  CATKIN_DEPENDS roscpp message_runtime topic_tools
+  CATKIN_DEPENDS roscpp message_runtime blob
 #  DEPENDS system_lib
 )
 
@@ -66,13 +61,11 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
-include_directories(include
-  ${catkin_INCLUDE_DIRS}
-)
+include_directories(include ${catkin_INCLUDE_DIRS})
 
 ## Declare a cpp library
 add_library(topic_proxy
-  src/topic_proxy.cpp src/compression.cpp
+  src/topic_proxy.cpp
 )
 
 ## Declare a cpp executable
@@ -84,7 +77,7 @@ add_executable(client src/client.cpp)
 add_dependencies(topic_proxy topic_proxy_gencpp)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(topic_proxy ${catkin_LIBRARIES} ${zlib_LIBRARIES})
+target_link_libraries(topic_proxy ${catkin_LIBRARIES})
 target_link_libraries(server topic_proxy)
 target_link_libraries(client topic_proxy)
 
@@ -103,25 +96,23 @@ target_link_libraries(client topic_proxy)
 # )
 
 ## Mark executables and/or libraries for installation
-install(TARGETS server client
+install(TARGETS topic_proxy server client
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 ## Mark cpp header files for installation
-# install(DIRECTORY include/${PROJECT_NAME}/
-#   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-#   FILES_MATCHING PATTERN "*.h"
-#   PATTERN ".svn" EXCLUDE
-# )
+install(DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+  FILES_MATCHING PATTERN "*.h"
+  PATTERN ".svn" EXCLUDE
+)
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
-# install(FILES
-#   # myfile1
-#   # myfile2
-#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-# )
+install(DIRECTORY launch/
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)
 
 #############
 ## Testing ##

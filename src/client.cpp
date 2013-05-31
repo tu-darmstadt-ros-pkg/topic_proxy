@@ -1,14 +1,19 @@
 #include <ros/ros.h>
 #include <topic_proxy/topic_proxy.h>
-#include <topic_tools/shape_shifter.h>
+#include <blob/shape_shifter.h>
+
+#include <topic_proxy/RequestMessage.h>
 
 namespace topic_proxy
 {
+
+using blob::ShapeShifter;
 
 class Client : public TopicProxy
 {
 private:
   ros::NodeHandle nh_;
+  ros::ServiceServer request_service_;
 
   struct PublicationInfo
   {
@@ -20,10 +25,12 @@ private:
     ros::Publisher publisher;
     bool latch;
     ros::Timer timer;
-    TopicRequest::Request request;
+    GetMessage::Request request;
   };
   typedef boost::shared_ptr<PublicationInfo> PublicationInfoPtr;
   std::map<std::string, PublicationInfoPtr> publications_;
+
+  std::string topic_prefix_;
 
 public:
   Client(const std::string& ns)
@@ -60,24 +67,31 @@ public:
     if (publications.getType() == XmlRpc::XmlRpcValue::TypeArray) {
       for(int i = 0; i < publications.size(); ++i) {
         XmlRpc::XmlRpcValue p = publications[i];
-        PublicationInfoPtr publication(new PublicationInfo());
-        ros::Duration interval(1.0);
+        std::string topic;
         if (p.getType() == XmlRpc::XmlRpcValue::TypeString) {
-          publication->request.topic = static_cast<std::string>(p);
+          topic = static_cast<std::string>(p);
         } else if (p.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
-          if (p.hasMember("topic"))      publication->request.topic = static_cast<std::string>(p["topic"]);
+          if (p.hasMember("topic")) topic = static_cast<std::string>(p["topic"]);
+        }
+        if (topic.empty()) continue;
+
+        PublicationInfoPtr publication = getPublication(topic);
+        ros::Duration interval;
+        if (p.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
           if (p.hasMember("timeout"))    publication->request.timeout = ros::Duration(static_cast<double>(p["timeout"]));
           if (p.hasMember("compressed")) publication->request.compressed = static_cast<bool>(p["compressed"]);
           if (p.hasMember("interval"))   interval = ros::Duration(static_cast<double>(p["interval"]));
           if (p.hasMember("latch"))      publication->latch = static_cast<bool>(p["latch"]);
         }
 
-        if (!publication->request.topic.empty() && !interval.isZero()) {
-          publication = addPublication(publication->request.topic, publication);
+        if (!interval.isZero()) {
           publication->timer = nh_.createTimer(interval, boost::bind(&Client::timerCallback, this, publication, _1));
         }
       }
     }
+
+    ros::param::get("~topic_prefix", topic_prefix_);
+    request_service_ = nh_.advertiseService("/request_message", &Client::handleRequest, this);
   }
 
   ~Client()
@@ -85,44 +99,70 @@ public:
     clearPublications();
   }
 
-  bool publish(TopicRequest::Request& request, bool latch = false)
+  bool publish(GetMessage::Request& request, bool latch = false)
   {
-    ShapeShifter::Ptr instance = sendRequest(request);
+    MessageInstanceConstPtr instance = sendRequest(request);
     if (!instance) {
       ROS_ERROR("Request for topic %s failed", request.topic.c_str());
       return false;
     }
 
-    PublicationInfoPtr publication = addPublication(request.topic);
+    PublicationInfoPtr publication = getPublication(request.topic);
     if (!publications_[request.topic]->publisher) {
+      std::string advertised_topic = nh_.resolveName(topic_prefix_ + request.topic);
       if (!getHost().empty()) {
-        ROS_INFO("Advertising topic %s from host %s as %s", request.topic.c_str(), getHost().c_str(), nh_.resolveName(request.topic).c_str());
+        ROS_INFO("Advertising topic %s from host %s as %s", request.topic.c_str(), getHost().c_str(), advertised_topic.c_str());
       } else {
         ROS_INFO("Advertising topic %s as %s", request.topic.c_str(), nh_.resolveName(request.topic).c_str());
       }
 
-      ros::AdvertiseOptions ops = ros::AdvertiseOptions(request.topic, 10, instance->getMD5Sum(), instance->getDataType(), instance->getMessageDefinition(), boost::bind(&Client::connectCallback, this, publication), boost::bind(&Client::disconnectCallback, this, publication));
+      ros::AdvertiseOptions ops = ros::AdvertiseOptions(advertised_topic, 10, instance->md5sum, instance->type, instance->message_definition, boost::bind(&Client::connectCallback, this, publication), boost::bind(&Client::disconnectCallback, this, publication));
       ops.latch = latch;
       publication->publisher = nh_.advertise(ops);
       publication->topic = publication->publisher.getTopic();
       publications_[request.topic] = publication;
     }
 
-    publication->publisher.publish(instance);
+    blob::ShapeShifter message(instance->blob.asMessage());
+    message.morph(instance->md5sum, instance->type, instance->message_definition);
+    publication->publisher.publish(message);
     return true;
   }
 
-  const PublicationInfoPtr& addPublication(const std::string& topic, PublicationInfoPtr init = PublicationInfoPtr())
+  const PublicationInfoPtr& getPublication(const std::string& topic)
   {
     if (publications_.count(topic)) return publications_.at(topic);
-    PublicationInfoPtr publication = init;
-    if (!publication) publication.reset(new PublicationInfo());
+    PublicationInfoPtr publication(new PublicationInfo());
     return publications_.insert(std::pair<std::string, PublicationInfoPtr>(topic, publication)).first->second;
   }
 
   void timerCallback(const PublicationInfoPtr& publication, const ros::TimerEvent& event)
   {
     publish(publication->request, publication->latch);
+  }
+
+  bool handleRequest(RequestMessage::Request& request, RequestMessage::Response& response)
+  {
+    PublicationInfoPtr publication = getPublication(request.topic);
+    publication->request.topic = request.topic;
+    publication->request.compressed = request.compressed;
+    publication->request.timeout = request.timeout;
+    publication->latch = request.latch;
+
+    if (request.interval > ros::Duration()) {
+      // add new timer
+      publication->timer = nh_.createTimer(request.interval, boost::bind(&Client::timerCallback, this, publication, _1));
+    } else {
+      // stop otimer
+      publication->timer.stop();
+    }
+
+    // request once
+    if (request.interval.isZero()) {
+      return publish(publication->request);
+    }
+
+    return true;
   }
 
   void clearPublications()

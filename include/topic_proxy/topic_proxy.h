@@ -30,19 +30,10 @@
 #define TOPIC_PROXY_H
 
 #include <ros/forwards.h>
-#include <topic_proxy/TopicRequest.h>
-#include <topic_tools/shape_shifter.h>
-
-namespace topic_tools
-{
-  class ShapeShifter;
-}
+#include <topic_proxy/GetMessage.h>
 
 namespace topic_proxy
 {
-
-class Compression;
-using topic_tools::ShapeShifter;
 
 class TopicProxy
 {
@@ -50,8 +41,6 @@ private:
   ros::ServiceServerLinkPtr link_;
   std::string host_;
   uint16_t port_;
-
-  boost::shared_ptr<Compression> compression_;
 
 public:
   static const std::string s_service_name;
@@ -68,25 +57,24 @@ public:
   uint16_t getTCPPort() const { return port_; }
   std::string getServiceName();
 
-  template <class M>
-  boost::shared_ptr<M> requestTopic(const std::string& topic, ros::Duration timeout = ros::Duration(), bool compressed = false);
+  template <class M> boost::shared_ptr<const M> requestTopic(const std::string& topic, ros::Duration timeout = ros::Duration(), bool compressed = false);
 
 protected:
   bool init();
-  boost::shared_ptr<ShapeShifter> sendRequest(TopicRequest::Request& request);
+  MessageInstanceConstPtr sendRequest(GetMessage::Request& request);
 };
 
 template <class M>
-boost::shared_ptr<M> TopicProxy::requestTopic(const std::string& topic, ros::Duration timeout, bool compressed)
+boost::shared_ptr<const M> TopicProxy::requestTopic(const std::string& topic, ros::Duration timeout, bool compressed)
 {
-  TopicRequest::Request request;
+  GetMessage::Request request;
   request.topic = topic;
-  request.timeout = timeout;
   request.compressed = compressed;
+  request.timeout = timeout;
 
-  boost::shared_ptr<ShapeShifter> result = sendRequest(request);
-  if (!result) return boost::shared_ptr<M>();
-  return result ? result->instantiate<M>() : boost::shared_ptr<M>();
+  MessageInstanceConstPtr result = sendRequest(request);
+  if (!result) return boost::shared_ptr<const M>();
+  return result ? result->blob.instantiate<M>() : boost::shared_ptr<M>();
 }
 
 } // namespace topic_proxy

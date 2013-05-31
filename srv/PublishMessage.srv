@@ -1,0 +1,4 @@
+# topic_proxy/PublishMessage publishes a single message on the server side.
+MessageInstance message
+bool latch
+---

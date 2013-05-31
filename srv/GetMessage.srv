@@ -1,0 +1,8 @@
+# topic_proxy/GetMessage is used internally to get a single message from the server.
+#
+
+string topic
+bool compressed
+duration timeout
+---
+MessageInstance message

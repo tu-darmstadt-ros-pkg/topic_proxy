@@ -1,6 +1,4 @@
 #include <topic_proxy/topic_proxy.h>
-#include <topic_proxy/compression.h>
-#include <topic_tools/shape_shifter.h>
 
 #include <ros/serialization.h>
 #include <ros/transport/transport_tcp.h>
@@ -8,18 +6,19 @@
 #include <ros/poll_manager.h>
 #include <ros/connection_manager.h>
 #include <ros/service_server_link.h>
+#include <ros/node_handle.h>
+#include <ros/service.h>
 
 using namespace ros;
 
 namespace topic_proxy
 {
-  const std::string TopicProxy::s_service_name = "/topic_request";
+  const std::string TopicProxy::s_service_name = "/get_message";
   const uint32_t TopicProxy::s_default_port = 11322;
 
   TopicProxy::TopicProxy()
   {
     init();
-    compression_.reset(new Compression());
   }
 
   TopicProxy::TopicProxy(const std::string& host, uint32_t port)
@@ -28,7 +27,6 @@ namespace topic_proxy
   {
     if (port_ == 0) port_ = s_default_port;
     init();
-    compression_.reset(new Compression());
   }
 
   bool TopicProxy::init()
@@ -44,9 +42,9 @@ namespace topic_proxy
       if (!ServiceManager::instance()->lookupService(s_service_name, host, port)) return false;
     }
 
-    bool persistent = false;
-    std::string request_md5sum  = service_traits::md5sum<TopicRequest::Request>();
-    std::string response_md5sum = service_traits::md5sum<TopicRequest::Response>();
+    bool persistent = true;
+    std::string request_md5sum  = service_traits::md5sum<GetMessage::Request>();
+    std::string response_md5sum = service_traits::md5sum<GetMessage::Response>();
     M_string header_values;
 
     TransportTCPPtr transport(new TransportTCP(&PollManager::instance()->getPollSet()));
@@ -81,19 +79,19 @@ namespace topic_proxy
     return link_->getServiceName();
   }
 
-  ShapeShifter::Ptr TopicProxy::sendRequest(TopicRequest::Request& request)
+  MessageInstanceConstPtr TopicProxy::sendRequest(GetMessage::Request& request)
   {
-    if (!isValid() && !init()) return ShapeShifter::Ptr();
+    if (!isValid() && !init()) return MessageInstanceConstPtr();
 
     namespace ser = serialization;
     SerializedMessage ser_req = ser::serializeMessage(request);
     SerializedMessage ser_resp;
-    TopicRequest::Response response;
+    GetMessage::Response response;
 
     bool ok = link_->call(ser_req, ser_resp);
     if (!ok)
     {
-      return ShapeShifter::Ptr();
+      return MessageInstanceConstPtr();
     }
 
     try
@@ -102,33 +100,18 @@ namespace topic_proxy
     }
     catch (std::exception& e)
     {
-      ROS_ERROR("Exception thrown while while deserializing service call: %s", e.what());
-      return ShapeShifter::Ptr();
+      ROS_ERROR("Exception thrown while while deserializing service response: %s", e.what());
+      return MessageInstanceConstPtr();
     }
 
-    ShapeShifter::Ptr instance(new ShapeShifter());
-    instance->morph(response.md5sum, response.type, response.message_definition, response.latching);
-
-    if (response.is_compressed && compression_) {
-      TopicRequest::Response::_data_type uncompressed;
-      if (compression_->decompress(response.data, uncompressed)) {
-        response.data.swap(uncompressed);
-
-      } else {
-        ROS_ERROR("%s decompression of a message of topic %s failed", compression_->getType().c_str(), request.topic.c_str());
-        return ShapeShifter::Ptr();
-      }
-    }
-
+    MessageInstanceConstPtr message;
     try {
-      serialization::IStream stream(response.data.data(), response.data.size());
-      instance->read(stream);
+      message.reset(new MessageInstance(response.message));
     } catch(Exception& e) {
       ROS_ERROR("Catched exception while handling a request for topic %s: %s", request.topic.c_str(), e.what());
-      return ShapeShifter::Ptr();
     }
 
-    return instance;
+    return message;
   }
 
 } // namespace topic_proxy

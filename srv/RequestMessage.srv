@@ -1,0 +1,12 @@
+# The topic_proxy/RequestMessage service is used to tell the client to get a single
+# message from the server and republish it locally. Alternatively, if interval is
+# greather than zero, the client starts to pull the topic from the server periodically.
+# Call this service with interval <= 0 to disable the request.
+#
+
+string topic
+bool compressed
+duration timeout
+duration interval
+bool latch
+---

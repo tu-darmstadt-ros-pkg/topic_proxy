@@ -1,5 +1,4 @@
 #include <topic_proxy/topic_proxy.h>
-#include <topic_proxy/compression.h>
 
 #include <ros/ros.h>
 #include <ros/callback_queue.h>
@@ -9,12 +8,12 @@
 #include <ros/connection_manager.h>
 #include <ros/transport/transport_tcp.h>
 
-#include <topic_tools/shape_shifter.h>
+#include <blob/shape_shifter.h>
 
 namespace topic_proxy
 {
 
-using topic_tools::ShapeShifter;
+using blob::ShapeShifter;
 
 class Server
 {
@@ -35,13 +34,10 @@ private:
   typedef boost::shared_ptr<SubscriptionInfo> SubscriptionInfoPtr;
   std::map<std::string, SubscriptionInfoPtr> subscriptions_;
 
-  boost::shared_ptr<Compression> compression_;
-
 public:
   Server()
   {
     server_ = nh_.advertiseService(TopicProxy::s_service_name, &Server::handleRequest, this);
-    compression_.reset(new Compression());
   }
 
   ~Server()
@@ -65,7 +61,7 @@ public:
   }
 
 protected:
-  bool handleRequest(TopicRequest::Request& request, TopicRequest::Response& response)
+  bool handleRequest(GetMessage::Request& request, GetMessage::Response& response)
   {
     SubscriptionInfoPtr subscription;
 
@@ -86,39 +82,20 @@ protected:
     subscription->callback_queue.callOne(ros::WallDuration(request.timeout.sec, request.timeout.nsec));
     if (!subscription->event.getConstMessage()) return false;
 
-    response.topic = subscription->event.getConnectionHeader()["topic"];
-    response.md5sum = subscription->event.getConnectionHeader()["md5sum"];
-    response.type = subscription->event.getConnectionHeader()["type"];
-    response.message_definition = subscription->event.getConnectionHeader()["message_definition"];
-    response.latching = subscription->event.getConnectionHeader()["latching"];
-    response.is_compressed = false;
+    response.message.topic = subscription->event.getConnectionHeader()["topic"];
+    response.message.md5sum = subscription->event.getConnectionHeader()["md5sum"];
+    response.message.type = subscription->event.getConnectionHeader()["type"];
+    response.message.message_definition = subscription->event.getConnectionHeader()["message_definition"];
+    // response.message.latching = subscription->event.getConnectionHeader()["latching"];
+    response.message.blob.setCompressed(request.compressed);
 
     try {
       ShapeShifter::ConstPtr instance = subscription->event.getConstMessage();
-      response.data.resize(instance->size());
-      ros::serialization::OStream stream(response.data.data(), response.data.size());
-      instance->write(stream);
+      response.message.blob = instance->blob();
+
     } catch(ros::Exception& e) {
       ROS_ERROR("Catched exception while handling a request for topic %s: %s", request.topic.c_str(), e.what());
       return false;
-    }
-
-    if (request.compressed && compression_) {
-      TopicRequest::Response::_data_type compressed;
-      if (compression_->compress(response.data, compressed)) {
-        if (compressed.size() < response.data.size()) {
-          ROS_DEBUG("Compressed message of topic %s: uncompressed %lu bytes, compressed %lu bytes => %.1f %%", request.topic.c_str(), response.data.size(), compressed.size(), 100.0 - 100.0 * compressed.size() / response.data.size());
-
-          response.is_compressed = true;
-          response.data.swap(compressed);
-
-        } else {
-          ROS_DEBUG("Omitted %s compression of a message on topic as the compressed message size is bigger than the original data", compression_->getType().c_str(), request.topic.c_str());
-        }
-
-      } else {
-        ROS_ERROR("%s compression of a message on topic %s failed", compression_->getType().c_str(), request.topic.c_str());
-      }
     }
 
     return true;
