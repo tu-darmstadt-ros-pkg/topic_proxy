@@ -1,0 +1,8 @@
+# topic_proxy/AddPublisher adds a local subscriber on the client side that can be used
+# to publish messages at the server side.
+#
+
+string topic
+bool compressed
+bool latch
+---

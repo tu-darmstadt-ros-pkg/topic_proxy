@@ -29,52 +29,70 @@
 #ifndef TOPIC_PROXY_H
 #define TOPIC_PROXY_H
 
-#include <ros/forwards.h>
+#include <topic_proxy/service_client.h>
+
 #include <topic_proxy/GetMessage.h>
+#include <topic_proxy/PublishMessage.h>
 
 namespace topic_proxy
 {
 
+extern const uint32_t g_default_port;
+extern const std::string g_get_message_service;
+extern const std::string g_publish_message_service;
+
 class TopicProxy
 {
 private:
-  ros::ServiceServerLinkPtr link_;
   std::string host_;
   uint16_t port_;
-
-public:
-  static const std::string s_service_name;
-  static const uint32_t s_default_port;
 
 public:
   TopicProxy();
   TopicProxy(const std::string& host, uint32_t port = 0);
   virtual ~TopicProxy();
 
-  bool isValid() const;
+  bool connect();
+  void shutdown();
 
   const std::string& getHost() const { return host_; }
   uint16_t getTCPPort() const { return port_; }
-  std::string getServiceName();
 
-  template <class M> boost::shared_ptr<const M> requestTopic(const std::string& topic, ros::Duration timeout = ros::Duration(), bool compressed = false);
+  template <class M> boost::shared_ptr<const M> getMessage(const std::string& topic, ros::Duration timeout = ros::Duration(), bool compressed = false);
+  template <class M> void publishMessage(const M& message, const std::string& topic, const std::string& md5sum, const std::string& message_definition, bool compressed = false);
 
 protected:
-  bool init();
-  MessageInstanceConstPtr sendRequest(GetMessage::Request& request);
+  ServiceClient get_message_;
+  MessageInstanceConstPtr send(GetMessage::Request&);
+
+  ServiceClient publish_message_;
+  bool send(PublishMessage::Request&);
 };
 
 template <class M>
-boost::shared_ptr<const M> TopicProxy::requestTopic(const std::string& topic, ros::Duration timeout, bool compressed)
+boost::shared_ptr<const M> TopicProxy::getMessage(const std::string& topic, ros::Duration timeout, bool compressed)
 {
   GetMessage::Request request;
   request.topic = topic;
   request.compressed = compressed;
   request.timeout = timeout;
 
-  MessageInstanceConstPtr result = sendRequest(request);
+  MessageInstanceConstPtr result = send(request);
   if (!result) return boost::shared_ptr<const M>();
   return result ? result->blob.instantiate<M>() : boost::shared_ptr<M>();
+}
+
+template <class M>
+void TopicProxy::publishMessage(const M& message, const std::string& topic, const std::string& md5sum, const std::string& message_definition, bool compressed)
+{
+  PublishMessage::Request request;
+  request.message.topic = topic;
+  request.message.md5sum = md5sum;
+  request.message.message_definition = message_definition;
+  request.message.blob.setCompressed(compressed);
+  request.message.blob.serialize(message);
+
+  return send(request);
 }
 
 } // namespace topic_proxy

@@ -19,12 +19,12 @@ class Server
 {
 private:
   ros::NodeHandle nh_;
-  ros::ServiceServer server_;
-
-  std::string peer_;
+  ros::ServiceServer get_message_server_;
+  ros::ServiceServer publish_message_server_;
 
   typedef ros::MessageEvent<const ShapeShifter> MessageEvent;
   // typedef boost::shared_ptr<MessageEvent> MessageEventPtr;
+
   struct SubscriptionInfo {
     std::string topic;
     ros::Subscriber subscriber;
@@ -34,15 +34,24 @@ private:
   typedef boost::shared_ptr<SubscriptionInfo> SubscriptionInfoPtr;
   std::map<std::string, SubscriptionInfoPtr> subscriptions_;
 
+  struct PublicationInfo {
+    std::string topic;
+    ros::Publisher publisher;
+  };
+  typedef boost::shared_ptr<PublicationInfo> PublicationInfoPtr;
+  std::map<std::string, PublicationInfoPtr> publications_;
+
 public:
   Server()
   {
-    server_ = nh_.advertiseService(TopicProxy::s_service_name, &Server::handleRequest, this);
+    get_message_server_     = nh_.advertiseService(g_get_message_service, &Server::handleGetMessage, this);
+    publish_message_server_ = nh_.advertiseService(g_publish_message_service, &Server::handlePublishMessage, this);
   }
 
   ~Server()
   {
     clearSubscriptions();
+    clearPublications();
   }
 
   const std::string& getHost() const
@@ -55,26 +64,30 @@ public:
     return ros::ConnectionManager::instance()->getTCPPort();
   }
 
-  std::string getService() const
+protected:  
+  const SubscriptionInfoPtr& getSubscription(const std::string& topic)
   {
-    return server_.getService();
+    if (subscriptions_.count(topic)) return subscriptions_.at(topic);
+    SubscriptionInfoPtr subscription(new SubscriptionInfo());
+    return subscriptions_.insert(std::pair<std::string, SubscriptionInfoPtr>(topic, subscription)).first->second;
   }
 
-protected:
-  bool handleRequest(GetMessage::Request& request, GetMessage::Response& response)
+  const PublicationInfoPtr& getPublication(const std::string& topic)
   {
-    SubscriptionInfoPtr subscription;
+    if (publications_.count(topic)) return publications_.at(topic);
+    PublicationInfoPtr publication(new PublicationInfo());
+    return publications_.insert(std::pair<std::string, PublicationInfoPtr>(topic, publication)).first->second;
+  }
 
-    if (!subscriptions_.count(request.topic)) {
+  bool handleGetMessage(GetMessage::Request& request, GetMessage::Response& response)
+  {
+    SubscriptionInfoPtr subscription = getSubscription(request.topic);
+
+    if (!subscription->subscriber) {
       ROS_INFO("Subscribing to topic %s", request.topic.c_str());
-      subscription.reset(new SubscriptionInfo());
       ros::SubscribeOptions ops = ros::SubscribeOptions::create<ShapeShifter>(request.topic, 1, boost::bind(&Server::subscriberCallback, this, subscription, _1), ros::VoidConstPtr(), &(subscription->callback_queue));
       subscription->subscriber = nh_.subscribe(ops);
       subscription->topic = subscription->subscriber.getTopic();
-      subscriptions_[request.topic] = subscription;
-
-    } else {
-      subscription = subscriptions_.at(request.topic);
     }
 
     // wait for exactly one callback and reset event pointer
@@ -106,6 +119,25 @@ protected:
     subscription->event = event;
   }
 
+  bool handlePublishMessage(PublishMessage::Request& request, PublishMessage::Response& response)
+  {
+    PublicationInfoPtr publication = getPublication(request.message.topic);
+
+    if (!publication->publisher) {
+      ROS_INFO("Publishing topic %s (%s)", request.message.topic.c_str(), request.message.type.c_str());
+      ros::AdvertiseOptions ops(request.message.topic, 10, request.message.md5sum, request.message.type, request.message.message_definition,
+                                boost::bind(&Server::connectCallback, this, publication, _1), boost::bind(&Server::disconnectCallback, this, publication, _1));
+      ops.latch = request.latch;
+      publication->publisher = nh_.advertise(ops);
+      publication->topic = publication->publisher.getTopic();
+    }
+
+    publication->publisher.publish(
+      request.message.blob.asMessage().morph(request.message.md5sum, request.message.type, request.message.message_definition)
+    );
+    return true;
+  }
+
   void clearSubscriptions() {
     for (std::map<std::string, SubscriptionInfoPtr>::iterator it = subscriptions_.begin(); it != subscriptions_.end(); ++it) {
       it->second->subscriber.shutdown();
@@ -113,6 +145,19 @@ protected:
     subscriptions_.clear();
   }
 
+  void clearPublications() {
+    for (std::map<std::string, PublicationInfoPtr>::iterator it = publications_.begin(); it != publications_.end(); ++it) {
+      it->second->publisher.shutdown();
+    }
+    publications_.clear();
+  }
+
+protected:
+  void connectCallback(const PublicationInfoPtr&, const ros::SingleSubscriberPublisher&)
+  {}
+
+  void disconnectCallback(const PublicationInfoPtr&, const ros::SingleSubscriberPublisher&)
+  {}
 };
 
 } // namespace topic_proxy
@@ -120,7 +165,7 @@ protected:
 int main(int argc, char **argv)
 {
   // add __tcpros_server_port to remappings
-  std::string tcpros_server_port_argv = "__tcpros_server_port:=" + boost::lexical_cast<std::string>(topic_proxy::TopicProxy::s_default_port);
+  std::string tcpros_server_port_argv = "__tcpros_server_port:=" + boost::lexical_cast<std::string>(topic_proxy::g_default_port);
   std::vector<char *> new_argv;
   new_argv.reserve(argc + 1);
   new_argv.assign(&argv[0], &argv[argc]);

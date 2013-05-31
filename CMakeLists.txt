@@ -32,6 +32,7 @@ add_service_files(
   GetMessage.srv
   PublishMessage.srv
   RequestMessage.srv
+  AddPublisher.srv
 )
 
 ## Generate added messages and services with any dependencies listed here
@@ -66,6 +67,7 @@ include_directories(include ${catkin_INCLUDE_DIRS})
 ## Declare a cpp library
 add_library(topic_proxy
   src/topic_proxy.cpp
+  src/service_client.cpp
 )
 
 ## Declare a cpp executable
