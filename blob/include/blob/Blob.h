@@ -200,7 +200,8 @@ public:
     return length + size();
   }
 
-  /* Instantiation */
+  /* Instantiation and Serialization */
+
   template <typename M>
   boost::shared_ptr<const M> instantiate() const {
     if (empty()) return boost::shared_ptr<const M>();
@@ -208,6 +209,14 @@ public:
     ros::serialization::IStream stream(data(), size());
     ros::serialization::deserialize(stream, *m);
     return m;
+  }
+
+  template <typename M>
+  void serialize(const M& message) {
+    clear();
+    BufferPtr buffer(new Buffer(ros::serialization::serializationLength(message)));
+    ros::serialization::OStream stream(buffer->data(), buffer->size());
+    ros::serialization::serialize(stream, message);
   }
 
   // implemented in shape_shifter.h
