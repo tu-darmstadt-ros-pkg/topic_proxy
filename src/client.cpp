@@ -92,6 +92,8 @@ public:
         if (topic.empty()) continue;
 
         SubscriptionInfoPtr subscription = getSubscription(topic);
+        subscription->topic = topic;
+        subscription->request.topic = topic;
         ros::Duration interval;
         if (p.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
           if (p.hasMember("timeout"))    subscription->request.timeout = ros::Duration(static_cast<double>(p["timeout"]));
@@ -108,7 +110,7 @@ public:
 
     XmlRpc::XmlRpcValue publications;
     ros::param::get("~publications", publications);
-    if (subscriptions.getType() == XmlRpc::XmlRpcValue::TypeArray) {
+    if (publications.getType() == XmlRpc::XmlRpcValue::TypeArray) {
       for(int i = 0; i < publications.size(); ++i) {
         XmlRpc::XmlRpcValue p = publications[i];
         std::string topic;
@@ -121,6 +123,7 @@ public:
 
         AddPublisher::Request request;
         AddPublisher::Response response;
+        request.topic = topic;
         if (p.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
           if (p.hasMember("compressed")) request.compressed = static_cast<bool>(p["compressed"]);
           if (p.hasMember("latch"))      request.latch = static_cast<bool>(p["latch"]);
@@ -146,7 +149,8 @@ public:
     }
 
     SubscriptionInfoPtr subscription = getSubscription(request.topic);
-    if (!subscription->publisher) {
+    if (!subscription->publisher
+        && !instance->type.empty() && !instance->md5sum.empty()) {
       std::string advertised_topic = nh_.resolveName(topic_prefix_ + request.topic);
       if (!getHost().empty()) {
         ROS_INFO("Advertising topic %s from host %s as %s", request.topic.c_str(), getHost().c_str(), advertised_topic.c_str());
@@ -159,6 +163,11 @@ public:
       ops.latch = latch;
       subscription->publisher = nh_.advertise(ops);
       subscription->topic = request.topic;
+    }
+
+    if (instance->blob.empty()) {
+      ROS_DEBUG("No message received on topic %s", request.topic.c_str());
+      return false;
     }
 
     subscription->publisher.publish(

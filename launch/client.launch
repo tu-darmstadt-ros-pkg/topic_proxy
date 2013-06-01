@@ -1,8 +1,14 @@
 <launch>
   <node name="topic_proxy_client" pkg="topic_proxy" type="client" output="screen" ns="client">
-    <rosparam param="subscriptions">[
-      { topic: chatter, interval: 1.0, compressed: false },
-    ]</rosparam>
+    <rosparam>
+      subscriptions:
+        - topic: chatter
+          interval: 1.0
+          compressed: false
+      publications:
+        - topic: chatter_response
+          compressed: false
+    </rosparam>
   </node>
 </launch>
       

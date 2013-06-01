@@ -23,13 +23,13 @@ private:
   ros::ServiceServer publish_message_server_;
 
   typedef ros::MessageEvent<const ShapeShifter> MessageEvent;
-  // typedef boost::shared_ptr<MessageEvent> MessageEventPtr;
 
   struct SubscriptionInfo {
     std::string topic;
     ros::Subscriber subscriber;
     ros::CallbackQueue callback_queue;
     MessageEvent event;
+    ShapeShifter::ConstPtr last_message;
   };
   typedef boost::shared_ptr<SubscriptionInfo> SubscriptionInfoPtr;
   std::map<std::string, SubscriptionInfoPtr> subscriptions_;
@@ -91,24 +91,44 @@ protected:
     }
 
     // wait for exactly one callback and reset event pointer
+    ros::WallDuration timeout(request.timeout.sec, request.timeout.nsec);
+    if (timeout > ros::WallDuration()) {
+      // clear callback queue and ignore all messages received if a timeout was specified
+      subscription->callback_queue.clear();
+    }
     subscription->event = MessageEvent();
-    subscription->callback_queue.callOne(ros::WallDuration(request.timeout.sec, request.timeout.nsec));
-    if (!subscription->event.getConstMessage()) return false;
+    subscription->callback_queue.callOne(timeout);
 
-    response.message.topic = subscription->event.getConnectionHeader()["topic"];
-    response.message.md5sum = subscription->event.getConnectionHeader()["md5sum"];
-    response.message.type = subscription->event.getConnectionHeader()["type"];
-    response.message.message_definition = subscription->event.getConnectionHeader()["message_definition"];
-    // response.message.latching = subscription->event.getConnectionHeader()["latching"];
-    response.message.blob.setCompressed(request.compressed);
-
+    ShapeShifter::ConstPtr instance;
     try {
-      ShapeShifter::ConstPtr instance = subscription->event.getConstMessage();
-      response.message.blob = instance->blob();
+      instance = subscription->event.getConstMessage();
 
     } catch(ros::Exception& e) {
       ROS_ERROR("Catched exception while handling a request for topic %s: %s", request.topic.c_str(), e.what());
       return false;
+    }
+
+    // any message message has been received?
+    if (instance) {
+      // fill response
+      response.message.topic = subscription->topic;
+      response.message.md5sum = instance->getMD5Sum();
+      response.message.type = instance->getDataType();
+      response.message.message_definition = instance->getMessageDefinition();
+      // response.message.latching = subscription->event.getConnectionHeader()["latching"];
+      response.message.blob = instance->blob();
+      response.message.blob.setCompressed(request.compressed);
+
+      subscription->last_message = instance;
+
+    } else {
+      // fill response from last message (but without data)
+      response.message.topic = subscription->topic;
+      if (subscription->last_message) {
+        response.message.md5sum = subscription->last_message->getMD5Sum();
+        response.message.type = subscription->last_message->getDataType();
+        response.message.message_definition = subscription->last_message->getMessageDefinition();
+      }
     }
 
     return true;
