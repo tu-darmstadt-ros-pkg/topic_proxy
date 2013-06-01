@@ -31,7 +31,7 @@ namespace topic_proxy
   bool TopicProxy::connect()
   {
     return get_message_.init<GetMessage>(g_get_message_service, host_, port_)
-        && publish_message_.init<GetMessage>(g_publish_message_service, host_, port_);
+        && publish_message_.init<PublishMessage>(g_publish_message_service, host_, port_);
   }
 
   void TopicProxy::shutdown()
