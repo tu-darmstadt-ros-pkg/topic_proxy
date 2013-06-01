@@ -13,7 +13,7 @@ The package provides three targets:
   
   Note: If you want to restart the server node you have to wait for approximately 1-2 minutes until the old
   socket listener transitions from TIME_WAIT to CLOSED state. Otherwise you will get an "Address already in use" error.
-  The roscpp connection manager does not the SO_REUSEADDR socket option. This problem is known as the "TCP TIME_WAIT
+  The roscpp connection manager does not set the SO_REUSEADDR socket option. This problem is known as the "TCP TIME_WAIT
   problem".
   
 * A client library named libtopic_proxy.so.
@@ -21,8 +21,8 @@ The package provides three targets:
   The client library provides a high-level class interface for getting and publishing messages from a server. The most
   important public member functions are
   
-      template <class M> boost::shared_ptr<const M> getMessage(string topic, Duration timeout, bool compressed);
-      template <class M> void publishMessage(M message, string topic, bool compressed);
+        template <class M> boost::shared_ptr<const M> getMessage(string topic, Duration timeout, bool compressed);
+        template <class M> void publishMessage(M message, string topic, bool compressed);
       
   which wrap the request into service calls.
   
@@ -32,7 +32,7 @@ The package provides three targets:
   The client can be configured either via the parameter server (see client.launch file for a simple example) or by
   using service calls to request single messages or to configure the subscribers and publishers.
   
-  Iy you want to connect to multiple servers (robots), you can run multiple clients in different namespaces.
+  If you want to connect to multiple servers (robots), you can run multiple clients in different namespaces.
   
 Services
 --------
