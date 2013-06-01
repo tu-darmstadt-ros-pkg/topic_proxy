@@ -59,7 +59,7 @@ public:
   uint16_t getTCPPort() const { return port_; }
 
   template <class M> boost::shared_ptr<const M> getMessage(const std::string& topic, ros::Duration timeout = ros::Duration(), bool compressed = false);
-  template <class M> void publishMessage(const M& message, const std::string& topic, const std::string& md5sum, const std::string& message_definition, bool compressed = false);
+  template <class M> void publishMessage(const M& message, const std::string& topic, bool compressed = false);
 
 protected:
   ServiceClient get_message_;
@@ -83,12 +83,13 @@ boost::shared_ptr<const M> TopicProxy::getMessage(const std::string& topic, ros:
 }
 
 template <class M>
-void TopicProxy::publishMessage(const M& message, const std::string& topic, const std::string& md5sum, const std::string& message_definition, bool compressed)
+void TopicProxy::publishMessage(const M& message, const std::string& topic, bool compressed)
 {
   PublishMessage::Request request;
   request.message.topic = topic;
-  request.message.md5sum = md5sum;
-  request.message.message_definition = message_definition;
+  request.message.md5sum = ros::message_traits::md5sum<M>(message);
+  request.message.type = ros::message_traits::datatype<M>(message);
+  request.message.message_definition = ros::message_traits::definition<M>(message);
   request.message.blob.setCompressed(compressed);
   request.message.blob.serialize(message);
 
