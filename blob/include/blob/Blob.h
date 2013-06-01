@@ -146,10 +146,9 @@ public:
   template<typename Stream>
   void write(Stream& stream) const
   {
-    if (empty()) return;
     ROS_DEBUG_NAMED("blob", "Writing a blob of size %u at address %p to the stream", size(), data());
 
-    if (isCompressed()) {
+    if (!empty() && isCompressed()) {
       if (compress()) {
         ROS_DEBUG_NAMED("blob", "Using compression. Compressed size %u bytes (%.1f%%)", static_cast<uint32_t>(compressed_blob_->size()), 100.0 * (1.0 - static_cast<float>(compressed_blob_->size()) / static_cast<float>(size())));
         stream.next(true);
@@ -188,10 +187,9 @@ public:
 
   uint32_t serializedLength() const
   {
-    if (empty()) return 0;
     uint32_t length = ros::serialization::serializationLength(true) + ros::serialization::serializationLength(size());
 
-    if (this->isCompressed()) {
+    if (!empty() && isCompressed()) {
       if (compress()) {
         return length + compressed_blob_->size();
       }
