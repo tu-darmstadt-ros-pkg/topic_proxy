@@ -102,6 +102,7 @@ Example
 
 At the server:
 
+    rostopic pub /chatter std_msgs/String "hello" -r 1 &
     rosrun topic_proxy server
 
 At the client:
@@ -130,7 +131,7 @@ To publish a response, call the `add_publiher` server to create a local subscrib
     
 The server-side publisher will be created once a message is received from the client:
 
-    rostopic pub /client/chatter_response std_msgs/String "World" -1
+    rostopic pub /client/chatter_response std_msgs/String "world" -r 1 &
 
 The server will republish this message as `chatter` in his local namespace.
 
