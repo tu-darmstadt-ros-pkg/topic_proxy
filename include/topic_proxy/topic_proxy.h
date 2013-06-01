@@ -79,7 +79,7 @@ boost::shared_ptr<const M> TopicProxy::getMessage(const std::string& topic, ros:
 
   MessageInstanceConstPtr result = send(request);
   if (!result) return boost::shared_ptr<const M>();
-  return result ? result->blob.instantiate<M>() : boost::shared_ptr<M>();
+  return result ? result->blob.instantiate<const M>() : boost::shared_ptr<const M>();
 }
 
 template <class M>
