@@ -29,8 +29,9 @@ The package provides three targets:
 * A client node that is built on top of the topic_proxy library and republishes or subscribes topics on the client side
   on behalf of the server.
   
-  The client can be configured either via the parameter server (see client.launch file for a simple example) or by
-  using service calls to request single messages or to configure the subscribers and publishers.
+  The client can be configured either via the parameter server (see
+  [client.launch](https://github.com/meyerj/topic_proxy/blob/master/launch/client.launch) file for a simple example)
+  or by using service calls to request single messages or to configure the subscribers and publishers.
   
   If you want to connect to multiple servers (robots), you can run multiple clients in different namespaces.
   
@@ -39,7 +40,7 @@ Services
 
 ### Server side:
 
-* `/get_message` (topic_proxy/GetMessage)
+* `/get_message` ([topic_proxy/GetMessage](https://github.com/meyerj/topic_proxy/blob/master/srv/GetMessage.srv))
 
   Retrieve a single message from the server. The server will create a new subscriber if no one exists for the
   specified topic.
@@ -51,7 +52,7 @@ Services
    * `duration timeout`:  Time to wait for a new message, if no message has been received yet. If timeout is zero,
                           the last received message is returned without waiting.
 
-* `/publish_message` (topic_proxy/PublishMessage)
+* `/publish_message` ([topic_proxy/PublishMessage](https://github.com/meyerj/topic_proxy/blob/master/srv/PublishMessage.srv))
 
   Publish a message at the server. The server creates a new publisher if no one exists for the specified topic.
   
@@ -62,7 +63,7 @@ Services
     
 ###Client side:
 
-* `request_message` (topic_proxy/RequestMessage)
+* `request_message` ([topic_proxy/RequestMessage](https://github.com/meyerj/topic_proxy/blob/master/srv/RequestMessage.srv))
 
   Adds a new publisher at the client side (or modify the properties of an existing one). The client internally
   uses `/get_message` calls to retrieve messages from the server and republishes them locally.
@@ -79,7 +80,7 @@ Services
                           If <=0 and there is an active timer for this topic, the timer will be stopped.
    * `bool latch`:        If true, the topic will be latched locally.
     
-* `add_publisher` (topic_proxy/AddPublisher)
+* `add_publisher` ([topic_proxy/AddPublisher](https://github.com/meyerj/topic_proxy/blob/master/srv/AddPublisher.srv))
 
   Adds a new subscriber at the client side. The client forwards each incoming message to the server using a
   `/publish_message` call internally.
@@ -135,6 +136,6 @@ The server-side publisher will be created once a message is received from the cl
 
 The server will republish this message as `chatter` in his local namespace.
 
-See `client.launch` launch file in the topic_proxy package for a launch file example that does the same setup using
+See [client.launch](https://github.com/meyerj/topic_proxy/blob/master/launch/client.launch) launch file in the topic_proxy package for a launch file example that does the same setup using
 ROS parameters.
   
