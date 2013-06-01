@@ -201,9 +201,9 @@ public:
   /* Instantiation and Serialization */
 
   template <typename M>
-  boost::shared_ptr<const M> instantiate() const {
-    if (empty()) return boost::shared_ptr<const M>();
-    boost::shared_ptr<M> m(new M());
+  boost::shared_ptr<M> instantiate() const {
+    if (empty()) return boost::shared_ptr<M>();
+    boost::shared_ptr<typename boost::remove_const<M>::type> m(new M());
     ros::serialization::IStream stream(data(), size());
     ros::serialization::deserialize(stream, *m);
     return m;
