@@ -18,7 +18,7 @@
   <!-- Url tags are optional, but mutiple are allowed, one per tag -->
   <!-- Optional attribute type can be: website, bugtracker, or repository -->
   <!-- Example: -->
-  <!-- <url type="website">http://ros.org/wiki/topic_proxy</url> -->
+  <url type="website">https://github.com/meyerj/topic_proxy</url>
 
 
   <!-- Author tags are optional, mutiple are allowed, one per tag -->
