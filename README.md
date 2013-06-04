@@ -33,7 +33,7 @@ Subscriber:
     {
         // WARNING: instantiation of the "wrong" data type may result in non-sense data and/or StreamOverrunExceptions
         // blob/Blob is not type-safe!
-        nav_msgs::OccupancyGridMapPtr my_map = msg->instantiate<nav_msgs::OccupancyGridMap>();
+        nav_msgs::OccupancyGridMapPtr my_map = msg->map_blob.instantiate<nav_msgs::OccupancyGridMap>();
         
         if (my_map) {
             ....
