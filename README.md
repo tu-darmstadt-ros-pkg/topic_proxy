@@ -3,6 +3,10 @@ blob_tools
 
 blob provides a new message type blob/Blob for binary data.
 
+Currently, only [roscpp](http://www.ros.org/wiki/roscpp) is supported.
+Other client libraries like [rospy](http://www.ros.org/wiki/rospy) will serialize/deserialize blob data as uint8[],
+as defined in the [message definition](https://github.com/meyerj/blob_tools/blob/master/blob/msg/Blob.msg).
+
 Usage Example
 -------------
 
