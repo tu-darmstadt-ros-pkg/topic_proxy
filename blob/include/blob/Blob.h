@@ -141,6 +141,12 @@ public:
     copy();
   }
 
+  ConstBufferPtr getCopy()
+  {
+    copy();
+    return copy_;
+  }
+
   /* ROS serialization */
 
   template<typename Stream>
@@ -221,6 +227,15 @@ public:
   ShapeShifter asMessage() const;
 
   /* Compression */
+
+  ConstBufferPtr getCompressedBlob() const {
+    compress();
+    return compressed_blob_;
+  }
+
+  bool setFromCompressedData(const void *data, uint32_t size) {
+    return decompress(reinterpret_cast<const uint8_t *>(data), size);
+  }
 
 private:
   // compress blob into compressed_blob_
