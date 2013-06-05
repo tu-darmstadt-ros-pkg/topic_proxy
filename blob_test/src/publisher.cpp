@@ -30,12 +30,23 @@
 #include <ros/ros.h>
 #include <blob/Blob.h>
 
+#include <sensor_msgs/Imu.h>
+
 ros::Publisher pub;
 
 void publish(const ros::TimerEvent& event)
 {
+#ifdef SENSOR_MSGS_MESSAGE_IMU_H
+  sensor_msgs::Imu message;
+  blob::BlobPtr blob(new blob::Blob());
+  blob->serialize(message);
+#else
   const char buffer[] = "This is a test blob on the stack.\nThis is a test blob on the stack.\nThis is a test blob on the stack.\nThis is a test blob on the stack.\nThis is a test blob on the stack.\n";
   blob::BlobPtr blob(new blob::Blob(buffer, sizeof(buffer), true));
+#endif
+
+  blob->setCompressed(true);
+
   ROS_INFO("Publishing a blob of size %u at address %p", blob->size(), blob->data());
   pub.publish(blob);
   ROS_INFO("Destroying blob at address %p", blob->data());

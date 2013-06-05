@@ -29,8 +29,17 @@
 #include <ros/ros.h>
 #include <blob/Blob.h>
 
+#include <sensor_msgs/Imu.h>
+
 void callback(const blob::BlobConstPtr& blob) {
   ROS_INFO("Received a blob of size %u at address %p: %s", blob->size(), blob->data(), std::string(reinterpret_cast<const char *>(blob->data()), blob->size()).c_str());
+
+#ifdef SENSOR_MSGS_MESSAGE_IMU_H
+  sensor_msgs::ImuPtr imu = blob->instantiate<sensor_msgs::Imu>();
+  if (imu) {
+    std::cout << *imu << std::endl;
+  }
+#endif
 }
 
 int main(int argc, char **argv)
