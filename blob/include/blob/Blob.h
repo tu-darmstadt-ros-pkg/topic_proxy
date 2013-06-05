@@ -210,7 +210,7 @@ public:
   boost::shared_ptr<M> instantiate() const {
     if (empty()) return boost::shared_ptr<M>();
     boost::shared_ptr<typename boost::remove_const<M>::type> m(new M());
-    ros::serialization::IStream stream(data(), size());
+    ros::serialization::IStream stream(const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(data())), size());
     ros::serialization::deserialize(stream, *m);
     return m;
   }
@@ -219,8 +219,9 @@ public:
   void serialize(const M& message) {
     clear();
     BufferPtr buffer(new Buffer(ros::serialization::serializationLength(message)));
-    ros::serialization::OStream stream(buffer->data(), buffer->size());
+    ros::serialization::OStream stream(reinterpret_cast<uint8_t *>(buffer->data()), buffer->size());
     ros::serialization::serialize(stream, message);
+    set(buffer);
   }
 
   // implemented in shape_shifter.h
