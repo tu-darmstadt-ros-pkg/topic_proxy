@@ -19,7 +19,7 @@ private:
 
   struct SubscriptionInfo
   {
-    std::string topic;
+    std::string local_topic;
     std::string datatype;
     std::string md5sum;
     std::string message_definition;
@@ -34,7 +34,7 @@ private:
 
   struct PublicationInfo
   {
-    std::string topic;
+    std::string remote_topic;
     ros::Subscriber subscriber;
     bool latch;
     bool compressed;
@@ -92,14 +92,15 @@ public:
         if (topic.empty()) continue;
 
         SubscriptionInfoPtr subscription = getSubscription(topic);
-        subscription->topic = topic;
+        subscription->local_topic = topic;
         subscription->request.topic = topic;
         ros::Duration interval;
         if (p.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
-          if (p.hasMember("timeout"))    subscription->request.timeout = ros::Duration(static_cast<double>(p["timeout"]));
-          if (p.hasMember("compressed")) subscription->request.compressed = static_cast<bool>(p["compressed"]);
-          if (p.hasMember("interval"))   interval = ros::Duration(static_cast<double>(p["interval"]));
-          if (p.hasMember("latch"))      subscription->latch = static_cast<bool>(p["latch"]);
+          if (p.hasMember("remote_topic")) subscription->request.topic = static_cast<std::string>(p["remote_topic"]);
+          if (p.hasMember("timeout"))      subscription->request.timeout = ros::Duration(static_cast<double>(p["timeout"]));
+          if (p.hasMember("compressed"))   subscription->request.compressed = static_cast<bool>(p["compressed"]);
+          if (p.hasMember("interval"))     interval = ros::Duration(static_cast<double>(p["interval"]));
+          if (p.hasMember("latch"))        subscription->latch = static_cast<bool>(p["latch"]);
         }
 
         if (!interval.isZero()) {
@@ -125,8 +126,9 @@ public:
         AddPublisher::Response response;
         request.topic = topic;
         if (p.getType() == XmlRpc::XmlRpcValue::TypeStruct) {
-          if (p.hasMember("compressed")) request.compressed = static_cast<bool>(p["compressed"]);
-          if (p.hasMember("latch"))      request.latch = static_cast<bool>(p["latch"]);
+          if (p.hasMember("remote_topic")) request.remote_topic = static_cast<std::string>(p["remote_topic"]);
+          if (p.hasMember("compressed"))   request.compressed = static_cast<bool>(p["compressed"]);
+          if (p.hasMember("latch"))        request.latch = static_cast<bool>(p["latch"]);
         }
 
         handleAddPublisher(request, response);
@@ -148,10 +150,12 @@ public:
       return false;
     }
 
+    // advertise locally
     SubscriptionInfoPtr subscription = getSubscription(request.topic);
     if (!subscription->publisher
         && !instance->type.empty() && !instance->md5sum.empty()) {
-      std::string advertised_topic = nh_.resolveName(topic_prefix_ + request.topic);
+      if (subscription->local_topic.empty()) subscription->local_topic = request.topic;
+      std::string advertised_topic = nh_.resolveName(topic_prefix_ + subscription->local_topic);
       if (!getHost().empty()) {
         ROS_INFO("Advertising topic %s from host %s as %s", request.topic.c_str(), getHost().c_str(), advertised_topic.c_str());
       } else {
@@ -162,7 +166,6 @@ public:
                                                         boost::bind(&Client::connectCallback, this, subscription, _1), boost::bind(&Client::disconnectCallback, this, subscription, _1));
       ops.latch = latch;
       subscription->publisher = nh_.advertise(ops);
-      subscription->topic = request.topic;
     }
 
     if (instance->blob.empty()) {
@@ -194,7 +197,7 @@ protected:
   void publishCallback(const PublicationInfoPtr& publication, const blob::ShapeShifterConstPtr& message)
   {
     PublishMessage::Request request;
-    request.message.topic = publication->topic;
+    request.message.topic = publication->remote_topic;
     request.message.type = message->getDataType();
     request.message.md5sum = message->getMD5Sum();
     request.message.message_definition = message->getMessageDefinition();
@@ -249,7 +252,8 @@ protected:
       }
 
       publication->subscriber = nh_.subscribe<blob::ShapeShifter>(subscribed_topic, 10, boost::bind(&Client::publishCallback, this, publication, _1));
-      publication->topic = request.topic;
+      publication->remote_topic = request.topic;
+      if (!request.remote_topic.empty()) publication->remote_topic = request.remote_topic;
       publication->latch = request.latch;
       publication->compressed = request.compressed;
     }

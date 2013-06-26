@@ -3,6 +3,7 @@
 #
 
 string topic
+string remote_topic               # leave empty if equal to topic
 bool compressed
 bool latch
 ---
