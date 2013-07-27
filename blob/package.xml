@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package>
   <name>blob</name>
-  <version>0.0.0</version>
+  <version>0.1.0</version>
   <description>blob provides a new message type blob/Blob for binary data.</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
@@ -19,7 +19,7 @@
   <!-- Url tags are optional, but mutiple are allowed, one per tag -->
   <!-- Optional attribute type can be: website, bugtracker, or repository -->
   <!-- Example: -->
-  <url type="website">http://github.com/meyerj/blob_tools</url>
+  <url type="website">http://github.com/tu-darmstadt-ros-pkg/blob_tools</url>
 
 
   <!-- Author tags are optional, mutiple are allowed, one per tag -->
