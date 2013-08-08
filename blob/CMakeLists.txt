@@ -4,7 +4,7 @@ project(blob)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED message_generation)
+find_package(catkin REQUIRED roscpp message_generation)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -53,7 +53,7 @@ generate_messages()
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES blob
-  CATKIN_DEPENDS message_runtime
+  CATKIN_DEPENDS roscpp message_runtime
 #  DEPENDS system_lib
 )
 
