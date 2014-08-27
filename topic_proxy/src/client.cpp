@@ -134,6 +134,8 @@ public:
         handleAddPublisher(request, response);
       }
     }
+
+    return true;
   }
 
   ~Client()
