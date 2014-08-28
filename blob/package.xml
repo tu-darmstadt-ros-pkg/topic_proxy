@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package>
   <name>blob</name>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <description>blob provides a new message type blob/Blob for binary data.</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 

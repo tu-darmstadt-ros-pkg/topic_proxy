@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package>
   <name>topic_proxy</name>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <description>topic_proxy implements a ROS service server and client to pull single messages from one master and optionally republish them locally.</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
