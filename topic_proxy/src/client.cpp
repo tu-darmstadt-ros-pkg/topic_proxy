@@ -72,6 +72,7 @@ public:
       } else {
         ROS_WARN("Could not connect to topic_proxy server at local master %s", ros::master::getURI().c_str());
       }
+      return false;
     }
 
     ros::param::get("~topic_prefix", topic_prefix_);
