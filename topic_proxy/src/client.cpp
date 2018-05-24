@@ -147,6 +147,11 @@ public:
 
   bool republish(GetMessage::Request& request, bool latch = false)
   {
+    republish(request, request.topic, latch);
+  }
+
+  bool republish(GetMessage::Request& request, const std::string& topic, bool latch = false)
+  {
     MessageInstanceConstPtr instance = send(request);
     if (!instance) {
       ROS_ERROR("GetMessage request for topic %s failed", request.topic.c_str());
@@ -154,10 +159,10 @@ public:
     }
 
     // advertise locally
-    SubscriptionInfoPtr subscription = getSubscription(request.topic);
+    SubscriptionInfoPtr subscription = getSubscription(topic);
     if (!subscription->publisher
         && !instance->type.empty() && !instance->md5sum.empty()) {
-      if (subscription->local_topic.empty()) subscription->local_topic = request.topic;
+      if (subscription->local_topic.empty()) subscription->local_topic = topic;
       std::string advertised_topic = nh_.resolveName(topic_prefix_ + subscription->local_topic);
       if (!getHost().empty()) {
         ROS_INFO("Advertising topic %s from host %s as %s", request.topic.c_str(), getHost().c_str(), advertised_topic.c_str());
@@ -215,16 +220,17 @@ protected:
 
   void timerCallback(const SubscriptionInfoPtr& subscription, const ros::TimerEvent& event)
   {
-    republish(subscription->request, subscription->latch);
+    republish(subscription->request, subscription->local_topic, subscription->latch);
   }
 
   bool handleRequestMessage(RequestMessage::Request& request, RequestMessage::Response& response)
   {
     SubscriptionInfoPtr subscription = getSubscription(request.topic);
-    subscription->request.topic = request.topic;
+    subscription->request.topic = request.remote_topic;
     subscription->request.compressed = request.compressed;
     subscription->request.timeout = request.timeout;
     subscription->latch = request.latch;
+    subscription->local_topic = request.topic;
 
     if (request.interval > ros::Duration()) {
       // add new timer
@@ -236,7 +242,7 @@ protected:
 
     // request once
     if (request.interval.isZero()) {
-      return republish(subscription->request);
+      return republish(subscription->request, request.topic, request.latch);
     }
 
     return true;
