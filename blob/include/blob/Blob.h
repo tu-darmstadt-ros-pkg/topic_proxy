@@ -157,14 +157,14 @@ public:
     if (!empty() && isCompressed()) {
       if (compress()) {
         ROS_DEBUG_NAMED("blob", "Using compression. Compressed size %u bytes (%.1f%%)", static_cast<uint32_t>(compressed_blob_->size()), 100.0 * (1.0 - static_cast<float>(compressed_blob_->size()) / static_cast<float>(size())));
-        stream.next(true);
+        stream.next(static_cast<uint8_t>(true));
         stream.next(static_cast<uint32_t>(compressed_blob_->size()));
         std::copy(compressed_blob_->begin(), compressed_blob_->end(), stream.advance(compressed_blob_->size()));
         return;
       }
     }
 
-    stream.next(false);
+    stream.next(static_cast<uint8_t>(false));
     stream.next(static_cast<uint32_t>(size()));
     std::copy(begin(), end(), stream.advance(size()));
   }
@@ -172,7 +172,7 @@ public:
   template<typename Stream>
   void read(Stream& stream)
   {
-    bool is_compressed;
+    uint8_t is_compressed;
     uint32_t size;
     stream.next(is_compressed);
     stream.next(size);
